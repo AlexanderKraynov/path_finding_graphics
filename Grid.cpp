@@ -1,13 +1,65 @@
 #include "Grid.hpp"
 #include <utility>
 #include <iostream>
+#include "resources/strings/strings.hpp"
 
 #define TEXT_MARGIN 10
 #define FONT_SIZE 24
 
-void Grid::draw(sf::RenderWindow &window)
+void Grid::draw(sf::RenderWindow &window) const
 {
-  //drawing grid
+  drawGrid(window);
+  drawObstacles(window, sf::Color(128, 128, 128));
+  drawPoint(window, origin, sf::Color::Green);
+  drawPoint(window, destination, sf::Color::Red);
+  drawPath(window, sf::Color::Blue);
+  drawUI(window, sf::Color::White);
+}
+
+Grid::Grid(int M, int N, int cellLength, const std::shared_ptr<PathFinder> &algorithm) :
+  rows(M),
+  columns(N),
+  cellLength(cellLength),
+  algorithm(std::move(algorithm)),
+  origin({0, 0}),
+  destination({M - 1, N - 1}),
+  placementState(state::obstacles),
+  showPath(false)
+{
+}
+
+void Grid::addObstacle(const PathFinder::Point &obstacle)
+{
+  algorithm->addObstacle(obstacle);
+}
+
+int Grid::getCellLength() const
+{
+  return cellLength;
+}
+
+void Grid::removeObstacle(const PathFinder::Point &obstacle)
+{
+  algorithm->removeObstacle(obstacle);
+}
+
+int Grid::getRows() const
+{
+  return rows;
+}
+
+int Grid::getColumns() const
+{
+  return columns;
+}
+
+bool Grid::isObstacle(const PathFinder::Point &coordinates) const
+{
+  return algorithm->isObstacle(coordinates);
+}
+
+void Grid::drawGrid(sf::RenderWindow &window, int outlineThickness) const
+{
   for (int i = 0; i < rows; i++)
   {
     for (int j = 0; j < columns; j++)
@@ -15,36 +67,39 @@ void Grid::draw(sf::RenderWindow &window)
       sf::RectangleShape cell;
       cell.setPosition(i * cellLength, j * cellLength);
       cell.setSize(sf::Vector2f(cellLength, cellLength));
-      cell.setOutlineThickness(1);
+      cell.setOutlineThickness(outlineThickness);
       cell.setFillColor(sf::Color::White);
       cell.setOutlineColor(sf::Color::Black);
       window.draw(cell);
     }
   }
-  //drawing obstacles
+}
+
+void Grid::drawObstacles(sf::RenderWindow &window, const sf::Color &obstacleColor) const
+{
   for (auto obstacle : algorithm->getObstacles())
   {
     sf::RectangleShape cell;
     cell.setPosition(obstacle.first * cellLength, obstacle.second * cellLength);
     cell.setSize(sf::Vector2f(cellLength, cellLength));
     cell.setOutlineThickness(1);
-    cell.setFillColor(sf::Color(128, 128, 128));
+    cell.setFillColor(obstacleColor);
     cell.setOutlineColor(sf::Color::Black);
     window.draw(cell);
   }
-  //drawing origin
+}
+
+void Grid::drawPoint(sf::RenderWindow &window, const PathFinder::Point &pos, const sf::Color &pointColor) const
+{
   sf::CircleShape begin;
-  begin.setPosition(origin.first * cellLength, origin.second * cellLength);
+  begin.setPosition(pos.first * cellLength, pos.second * cellLength);
   begin.setRadius(cellLength / 2.02);
-  begin.setFillColor(sf::Color::Green);
+  begin.setFillColor(pointColor);
   window.draw(begin);
-  //drawing destination
-  sf::CircleShape end;
-  end.setPosition(destination.first * cellLength, destination.second * cellLength);
-  end.setRadius(cellLength / 2.02);
-  end.setFillColor(sf::Color::Red);
-  window.draw(end);
-  //drawing path
+}
+
+void Grid::drawPath(sf::RenderWindow &window, const sf::Color &pathColor) const
+{
   if (showPath)
   {
     auto path = algorithm->pathBetween({origin.second, origin.first}, {destination.second, destination.first});
@@ -54,14 +109,17 @@ void Grid::draw(sf::RenderWindow &window)
     {
       pathGraph[i] = sf::Vertex(
         sf::Vector2f(it->first * cellLength + cellLength / 2, it->second * cellLength + cellLength / 2));
-      pathGraph[i].color = sf::Color::Blue;
+      pathGraph[i].color = pathColor;
       it++;
     }
     window.draw(pathGraph, path.size(), sf::LineStrip);
   }
-  //draw text
+}
+
+void Grid::drawUI(sf::RenderWindow &window, const sf::Color &textColor) const
+{
   sf::Font font;
-  if (!font.loadFromFile("../OpenSans-Regular.ttf"))
+  if (!font.loadFromFile(openSansPath))
   {
     throw std::logic_error("Font file not found");
   }
@@ -69,11 +127,9 @@ void Grid::draw(sf::RenderWindow &window)
   man.setFont(font);
   man.setPosition(TEXT_MARGIN, columns * cellLength + TEXT_MARGIN);
   man.setCharacterSize(FONT_SIZE);
-  man.setFillColor(sf::Color::White);
-  man.setString(
-    "Press \n1 to enter obstacle placement mode (lmb to place, rmb to delete obstacle)\n2 to enter origin placement mode\n3 to enter destination placement mode\nSpace to toggle path\nEsc to exit");
+  man.setFillColor(textColor);
+  man.setString(uiText);
   window.draw(man);
-  //draw state markers
   int top_margin;
   switch (placementState)
   {
@@ -92,6 +148,10 @@ void Grid::draw(sf::RenderWindow &window)
       top_margin = 4;
       break;
     }
+    default:
+    {
+      throw std::runtime_error("Invalid grid state. Undefinded behaviour possible");
+    }
   }
   sf::RectangleShape stateMarker;
   stateMarker.setPosition(5,
@@ -99,48 +159,7 @@ void Grid::draw(sf::RenderWindow &window)
   stateMarker.setSize(sf::Vector2f(FONT_SIZE, FONT_SIZE));
   stateMarker.setOutlineThickness(1);
   stateMarker.setFillColor(sf::Color::Transparent);
-  stateMarker.setOutlineColor(sf::Color::White);
+  stateMarker.setOutlineColor(textColor);
   window.draw(stateMarker);
 }
 
-Grid::Grid(int M, int N, int cellLength, std::shared_ptr<PathFinder> algorithm) :
-  rows(M),
-  columns(N),
-  cellLength(cellLength),
-  algorithm(std::move(algorithm)),
-  origin({0, 0}),
-  destination({M - 1, N - 1}),
-  placementState(state::obstacles),
-  showPath(false)
-{
-}
-
-void Grid::addObstacle(std::pair<int, int> obstacle)
-{
-  algorithm->addObstacle(obstacle);
-}
-
-int Grid::getCellLength()
-{
-  return cellLength;
-}
-
-void Grid::removeObstacle(std::pair<int, int> obstacle)
-{
-  algorithm->removeObstacle(obstacle);
-}
-
-int Grid::getRows()
-{
-  return rows;
-}
-
-int Grid::getColumns()
-{
-  return columns;
-}
-
-bool Grid::isObstacle(std::pair<int, int> coordinates)
-{
-  return algorithm->isObstacle(coordinates);
-}

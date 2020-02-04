@@ -1,6 +1,7 @@
 #include "Astar.hpp"
 #include <cmath>
 #include <cfloat>
+#include <exception>
 
 float Astar::calculateHeuristics(int x, int y, const Node &dest) const
 {
@@ -8,13 +9,8 @@ float Astar::calculateHeuristics(int x, int y, const Node &dest) const
   return H;
 }
 
-bool operator<(const Astar::Node &lhs, const Astar::Node &rhs)
-{
-  return lhs.fCost < rhs.fCost;
-}
-
-std::list<std::pair<int, int>>
-Astar::pathBetween(const std::pair<int, int> origin, const std::pair<int, int> destintation)
+std::list<Astar::Point>
+Astar::pathBetween(const Point &origin, const Point &destintation)
 {
   Node begin = {origin.first, origin.second};
   Node end = {destintation.first, destintation.second};
@@ -27,18 +23,12 @@ Astar::pathBetween(const std::pair<int, int> origin, const std::pair<int, int> d
     throw std::invalid_argument("destination is an obstacle");
   }
   bool closedNodes[rows][columns];
-  Node map[rows][columns];
+  std::vector<std::vector<Node> > map(rows, std::vector<Node> (columns));
   for (int i = 0; i < rows; i++)
   {
     for (int j = 0; j < columns; j++)
     {
-      map[i][j].fCost = FLT_MAX;
-      map[i][j].hCost = FLT_MAX;
-      map[i][j].gCost = FLT_MAX;
-      map[i][j].parentX = -1;
-      map[i][j].parentY = -1;
-      map[i][j].x = i;
-      map[i][j].y = j;
+      makeNodeDefault(map[i][j], i, j);
       closedNodes[i][j] = false;
     }
   }
@@ -54,23 +44,7 @@ Astar::pathBetween(const std::pair<int, int> origin, const std::pair<int, int> d
 
   while (!openedNodes.empty() && openedNodes.size() < rows * columns)
   {
-    Node node{};
-    do
-    {
-      float min = FLT_MAX;
-      std::vector<Node>::iterator itNode;
-      for (auto it = openedNodes.begin(); it != openedNodes.end(); it = next(it))
-      {
-        Node n = *it;
-        if (n.fCost < min)
-        {
-          min = n.fCost;
-          itNode = it;
-        }
-      }
-      node = *itNode;
-      openedNodes.erase(itNode);
-    } while (obstacles.find({node.x, node.y}) != obstacles.end());
+    Node node = findHighestPriorityNode(openedNodes);
     x = node.x;
     y = node.y;
     closedNodes[x][y] = true;
@@ -85,8 +59,7 @@ Astar::pathBetween(const std::pair<int, int> origin, const std::pair<int, int> d
         int newX = x + i;
         int newY = y + j;
         float gValue, fValue, hValue;
-        if (obstacles.find({newX, newY}) == obstacles.end() && (newX >= 0) && (newX < rows) && newY >= 0 &&
-            newY < columns)
+        if (isValidPoint({newX, newY}))
         {
           if (newX == end.x && newY == end.y)
           {
@@ -94,25 +67,7 @@ Astar::pathBetween(const std::pair<int, int> origin, const std::pair<int, int> d
             map[newX][newY].parentY = y;
             int destx = end.x;
             int desty = end.y;
-            std::stack<Node> path;
-            std::list<std::pair<int, int>> result;
-            while (!(map[destx][desty].parentX == destx && map[destx][desty].parentY == desty)
-                   && map[destx][desty].x != -1 && map[destx][desty].y != -1)
-            {
-              path.push(map[destx][desty]);
-              int tempX = map[destx][desty].parentX;
-              int tempY = map[destx][desty].parentY;
-              destx = tempX;
-              desty = tempY;
-            }
-            path.push(map[destx][desty]);
-            while (!path.empty())
-            {
-              Node top = path.top();
-              path.pop();
-              result.emplace_back(top.x, top.y);
-            }
-            return result;
+            return std::move(calculatePath({destx, desty}, map));
           }
           else if (!closedNodes[newX][newY])
           {
@@ -132,15 +87,76 @@ Astar::pathBetween(const std::pair<int, int> origin, const std::pair<int, int> d
         }
       }
     }
-
   }
-
-  return std::list<std::pair<int, int>>();
+  return std::list<Point>();
 }
 
 Astar::Astar(int m, int n) : PathFinder(m, n)
 {
+}
 
+Astar::Node Astar::findHighestPriorityNode(std::vector<Node> &openedNodes)
+{
+  Node node{};
+  do
+  {
+    float min = FLT_MAX;
+    std::vector<Node>::iterator itNode;
+    for (auto it = openedNodes.begin(); it != openedNodes.end(); it = next(it))
+    {
+      Node n = *it;
+      if (n.fCost < min)
+      {
+        min = n.fCost;
+        itNode = it;
+      }
+    }
+    node = *itNode;
+    openedNodes.erase(itNode);
+  } while (obstacles.find({node.x, node.y}) != obstacles.end());
+  return node;
+}
+
+void Astar::makeNodeDefault(Astar::Node &node, int i, int j)
+{
+  node.fCost = FLT_MAX;
+  node.hCost = FLT_MAX;
+  node.gCost = FLT_MAX;
+  node.parentX = -1;
+  node.parentY = -1;
+  node.x = i;
+  node.y = j;
+}
+
+bool Astar::isValidPoint(PathFinder::Point point) const
+{
+  return obstacles.find(point) == obstacles.end() && (point.first >= 0) && (point.first < rows) && point.second >= 0 &&
+         point.second < columns;
+}
+
+std::list<Astar::Point> Astar::calculatePath(Point dest, const std::vector<std::vector<Node>> &map)
+{
+  std::stack<Node> path;
+  std::list<Point> result;
+  int destx = dest.first;
+  int desty = dest.second;
+  while (!(map[destx][desty].parentX == destx && map[destx][desty].parentY == desty)
+         && map[destx][desty].x != -1 && map[destx][desty].y != -1)
+  {
+    path.push(map[destx][desty]);
+    int tempX = map[destx][desty].parentX;
+    int tempY = map[destx][desty].parentY;
+    destx = tempX;
+    desty = tempY;
+  }
+  path.push(map[destx][desty]);
+  while (!path.empty())
+  {
+    Node top = path.top();
+    path.pop();
+    result.emplace_back(top.x, top.y);
+  }
+  return result;
 }
 
 

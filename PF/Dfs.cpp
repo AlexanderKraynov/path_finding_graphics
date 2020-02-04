@@ -2,13 +2,13 @@
 #include <stack>
 #include "Dfs.hpp"
 
-std::list<std::pair<int, int>> Dfs::pathBetween(std::pair<int, int> origin, std::pair<int, int> destination)
+std::list<Dfs::Point> Dfs::pathBetween(const Point &origin, const Point &destination)
 {
-  std::stack<std::pair<int, int>> route;
-  std::unordered_set<std::pair<int, int>, pair_hash> visitedNodes;
-  std::pair<int, int> currentNode = {origin.second, origin.first};
+  std::stack<Point> route;
+  std::unordered_set<Point, pair_hash> visitedNodes;
+  Point currentNode = {origin.second, origin.first};
   visitedNodes.insert(currentNode);
-  while (currentNode != std::pair<int, int>({destination.second, destination.first}))
+  while (currentNode != Point({destination.second, destination.first}))
   {
     bool foundNotVisited = false;
     for (int i = -1; i <= 1; i++)
@@ -21,7 +21,7 @@ std::list<std::pair<int, int>> Dfs::pathBetween(std::pair<int, int> origin, std:
         }
         int newX = currentNode.first + i;
         int newY = currentNode.second + j;
-        std::pair<int, int> node = {newX, newY};
+        Point node = {newX, newY};
         if (!((newX >= 0) && (newX < rows) && newY >= 0 && newY < columns) || obstacles.find(node) != obstacles.end())
         {
           continue;
@@ -50,7 +50,7 @@ std::list<std::pair<int, int>> Dfs::pathBetween(std::pair<int, int> origin, std:
     route.pop();
   }
   route.push({destination.second, destination.first});
-  std::list<std::pair<int, int>> result;
+  std::list<Point> result;
   while (!route.empty())
   {
     result.push_back(route.top());

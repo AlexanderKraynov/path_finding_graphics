@@ -1,6 +1,6 @@
 #include <iostream>
-#include "Astar.hpp"
-#include "Dfs.hpp"
+#include "PF/Astar.hpp"
+#include "PF/Dfs.hpp"
 #include "Grid.hpp"
 #include "InputListener.hpp"
 

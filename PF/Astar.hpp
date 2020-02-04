@@ -9,7 +9,8 @@ class Astar : public PathFinder
 {
 public:
   Astar(int m, int n);
-  std::list<std::pair<int, int>> pathBetween(std::pair<int, int> origin, std::pair<int, int> destination) override;
+  std::list<Point>
+  pathBetween(const Point &origin, const Point &destination) override;
   struct Node
   {
     int y;
@@ -21,11 +22,11 @@ public:
     float fCost;
   };
 private:
+  static void makeNodeDefault(Node &node, int i, int j);
+  bool isValidPoint(Point point) const;
+  Node findHighestPriorityNode(std::vector<Node> &openedNodes);
   float calculateHeuristics(int x, int y, const Node &dest) const;
-  friend bool operator<(const Astar::Node &lhs, const Astar::Node &rhs);
+  std::list<Astar::Point> calculatePath(Point dest, const std::vector<std::vector<Node>> &map);
 };
-
-inline bool operator<(const Astar::Node &lhs, const Astar::Node &rhs);
-
 
 #endif

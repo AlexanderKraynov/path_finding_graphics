@@ -39,8 +39,9 @@ void InputListener::listen(Grid &grid, sf::RenderWindow &window)
     {
       if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
       {
-        int mousePositionX = sf::Mouse::getPosition(window).x / grid.getCellLength();
-        int mousePositionY = sf::Mouse::getPosition(window).y / grid.getCellLength();
+        sf::Vector2i mousePosition = sf::Mouse::getPosition(window);
+        int mousePositionX = mousePosition.x / grid.getCellLength();
+        int mousePositionY = mousePosition.y / grid.getCellLength();
         if (!((grid.destination.first == mousePositionX && grid.destination.second == mousePositionY) ||
               (grid.origin.first == mousePositionX && grid.origin.second == mousePositionY)) &&
             (mousePositionX < grid.getRows()) && mousePositionY < grid.getColumns() && mousePositionX >= 0 &&
@@ -49,6 +50,7 @@ void InputListener::listen(Grid &grid, sf::RenderWindow &window)
           grid.addObstacle({mousePositionX, mousePositionY});
         }
       }
+
       if (sf::Mouse::isButtonPressed(sf::Mouse::Right))
       {
         sf::Vector2i mousePosition = sf::Mouse::getPosition(window);
@@ -60,17 +62,7 @@ void InputListener::listen(Grid &grid, sf::RenderWindow &window)
     {
       if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
       {
-        sf::Vector2i mousePosition = sf::Mouse::getPosition(window);
-        int mousePositionX = mousePosition.x / grid.getCellLength();
-        int mousePositionY = mousePosition.y / grid.getCellLength();
-        if (!grid.isObstacle({mousePositionX, mousePositionY}) &&
-            (((mousePositionX < grid.getRows()) && mousePositionY < grid.getColumns() && mousePositionX >= 0 &&
-              mousePositionY >= 0)) &&
-            !((grid.destination.first == mousePositionX && grid.destination.second == mousePositionY)))
-        {
-          grid.origin.first = mousePosition.x / grid.getCellLength();
-          grid.origin.second = mousePosition.y / grid.getCellLength();
-        }
+        snapPointToMouse(grid, window, grid.origin);
       }
       break;
     }
@@ -78,19 +70,25 @@ void InputListener::listen(Grid &grid, sf::RenderWindow &window)
     {
       if (sf::Mouse::isButtonPressed(sf::Mouse::Left))
       {
-        sf::Vector2i mousePosition = sf::Mouse::getPosition(window);
-        int mousePositionX = mousePosition.x / grid.getCellLength();
-        int mousePositionY = mousePosition.y / grid.getCellLength();
-        if (!grid.isObstacle({mousePositionX, mousePositionY}) &&
-            (((mousePositionX < grid.getRows()) && mousePositionY < grid.getColumns() && mousePositionX >= 0 &&
-              mousePositionY >= 0)) &&
-            !((grid.origin.first == mousePositionX && grid.origin.second == mousePositionY)))
-        {
-          grid.destination.first = mousePosition.x / grid.getCellLength();
-          grid.destination.second = mousePosition.y / grid.getCellLength();
-        }
+        snapPointToMouse(grid, window, grid.destination);
       }
       break;
     }
+  }
+}
+
+void InputListener::snapPointToMouse(Grid &grid, sf::RenderWindow &window, PathFinder::Point &point)
+{
+  sf::Vector2i mousePosition = sf::Mouse::getPosition(window);
+  int mousePositionX = mousePosition.x / grid.getCellLength();
+  int mousePositionY = mousePosition.y / grid.getCellLength();
+  if (!grid.isObstacle({mousePositionX, mousePositionY}) &&
+      (((mousePositionX < grid.getRows()) && mousePositionY < grid.getColumns() && mousePositionX >= 0 &&
+        mousePositionY >= 0)) &&
+      !((grid.origin.first == mousePositionX && grid.origin.second == mousePositionY)) &&
+      !((grid.destination.first == mousePositionX && grid.destination.second == mousePositionY)))
+  {
+    point.first = mousePosition.x / grid.getCellLength();
+    point.second = mousePosition.y / grid.getCellLength();
   }
 }

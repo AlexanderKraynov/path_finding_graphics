@@ -8,7 +8,7 @@ class Dfs : public PathFinder
 {
 public:
   Dfs(int rows, int columns);
-  std::list<std::pair<int, int>> pathBetween(std::pair<int, int> origin, std::pair<int, int> destination) override;
+  std::list<Point> pathBetween(const Point &origin, const Point &destination) override;
 };
 
 
